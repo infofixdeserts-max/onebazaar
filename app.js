@@ -463,7 +463,21 @@ async function submitPost(){
       try { $("picPrev").innerHTML = ""; $("picPrev").classList.add("hidden"); } catch(e){}
     S.editId = 0; close("postModal"); load(); toast("Saved"); return;
     }
-    if (apiBase()){ await remote("POST","/api/listings", Object.assign({seller:myName()}, payload)); }
+    if (apiBase()){
+      if (!ls("ob_token")){
+        var rp = "reg-" + Math.random().toString(36).slice(2, 10);
+        try {
+          var jr = await remote("POST","/api/register",{username:myName(), password:rp});
+          ls("ob_token", jr.token); S.remotePrem = !!(jr.user && jr.user.premium);
+        } catch(e1){
+          try {
+            var jl = await remote("POST","/api/login",{username:myName(), password:rp});
+            ls("ob_token", jl.token);
+          } catch(e2){ throw new Error("Log in first (top right)"); }
+        }
+      }
+      await remote("POST","/api/listings", Object.assign({seller:myName()}, payload));
+    }
     else {
       var l = listings();
       var nid = l.reduce(function(m,x){ return Math.max(m,x.id||0); }, 0) + 1;
