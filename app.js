@@ -265,11 +265,11 @@ async function open(id, push){
       + (l.featured ? '<span class="chip">FEATURED ★</span>'
         : '<button class="btn small" onclick="OB.feature('+l.id+')">Feature $1</button>')
       + '<button class="btn danger small" onclick="OB.del('+l.id+')">Delete</button></div>'
-      + '<div class="offerrow"><button class="btn small" onclick="OB.share('+l.id+')">Share / copy link</button></div>'
       : '<div class="offerrow"><input id="offAmt" type="number" placeholder="Offer $" style="width:120px" aria-label="Offer amount">'
       + '<input id="offMsg" placeholder="Message" style="flex:1;min-width:140px" aria-label="Offer message">'
-      + '<button class="btn primary small" onclick="OB.offer('+l.id+')">Send offer</button></div>'
-      + '<div class="offerrow"><button class="btn small" onclick="OB.share('+l.id+')">Share / copy link</button></div>')
+      + '<button class="btn primary small" onclick="OB.offer('+l.id+')">Send offer</button></div>')
+    + "<h3>Share</h3>"
+    + socialRowFor(l.id, shareLink(l.id), money(l.price) + " " + l.title + " on OneBazaar")
     + matchHtml;
   try { document.title = l.title + " - " + money(l.price) + " | OneBazaar"; } catch(e){}
   $("detailModal").classList.remove("hidden");
@@ -492,16 +492,18 @@ async function feature(id){
   try { l = await opGet(id); } catch(e){ return toast(e.message); }
   if (!l || l.seller !== myName()) return toast("Only the owner can feature this");
   if (l.featured){ toast("Already featured"); return; }
+  var link = payUrl("feature", id);
+  if (link){
+    if (!confirm("Feature for $1? You will pay, then return here and it activates.")) return;
+    location.href = link; return;
+  }
   if (apiBase()){
-    if (CFG.FEATURE_LINK && !confirm("Feature for $1? You will pay with Stripe, then return here.")) return;
     try {
-      if (CFG.FEATURE_LINK){ location.href = payJoin(CFG.FEATURE_LINK, "client_reference_id=listing-" + id); return; }
       await remote("POST","/api/feature",{listing_id:id});
       toast("Featured ★"); load(); if (S.cur) open(S.cur, false); return;
     } catch(e){ toast(e.message); return; }
   }
-  if (CFG.FEATURE_LINK){ location.href = payJoin(CFG.FEATURE_LINK, "client_reference_id=listing-" + id); return; }
-  if (!confirm("Feature this listing for $1? (demo: no charge. Set FEATURE_LINK in config.js for real payments.)")) return;
+  if (!confirm("Feature this listing for $1? (demo: no charge. Add a Stripe link or PAYPAL_ME in config.js for real payments.)")) return;
   var fl2 = listings();
   for (var i = 0; i < fl2.length; i++) if (fl2[i].id === id) fl2[i].featured = true;
   saveListings(fl2); load(); if (S.cur) open(S.cur, false); toast("Featured ★");
@@ -545,6 +547,24 @@ async function handlePaid(qp){
 }
 function payJoin(link, param){
   return link + (link.indexOf("?") >= 0 ? "&" : "?") + param;
+}
+/* One real-money helper: Stripe link wins, PayPal.me fallback, demo last.
+   kind = "feature" ($1, per listing) or "premium" ($2/mo). */
+function payUrl(kind, id){
+  var ret = "";
+  try {
+    var u = new URL(location.href);
+    u.search = "";
+    ret = u.toString().split("?")[0] + "?paid=" + kind + (id ? "&listing=" + id : "");
+  } catch(e){ ret = "?paid=" + kind; }
+  if (kind === "feature" && CFG.FEATURE_LINK)
+    return payJoin(CFG.FEATURE_LINK, "client_reference_id=listing-" + id);
+  if (kind === "premium" && CFG.STRIPE_LINK) return CFG.STRIPE_LINK;
+  if (CFG.PAYPAL_ME){
+    var amt = kind === "feature" ? "1" : "2";
+    return "https://paypal.me/" + CFG.PAYPAL_ME + "/" + amt;
+  }
+  return "";
 }
 async function openSupport(){
   $("supportModal").classList.remove("hidden"); loadTickets();
@@ -601,10 +621,12 @@ function openPremium(){
   if (prem){
     area = "<p>You are Premium ★. Ads are off.</p>"
       + '<button class="btn small" onclick="OB.togglePrem()">Turn off Premium</button>';
-  } else if (CFG.STRIPE_LINK){
-   area = '<a class="btn primary" href="'+esc(CFG.STRIPE_LINK)+'" target="_blank" rel="noopener">Pay $2/mo with Stripe</a> '
-     + '<button class="btn small" onclick="OB.togglePrem()">I already paid</button>'
-     + "<p class='mut'>After paying, return here and tap <b>I already paid</b>. Demo connects instantly; the live server flips on Stripe webhook or the toggle.</p>";
+  } else if (payUrl("premium")){
+    var pl = payUrl("premium");
+    var via = CFG.STRIPE_LINK ? "Stripe" : "PayPal";
+    area = '<a class="btn primary" href="'+esc(pl)+'" target="_blank" rel="noopener">Pay $2/mo with '+via+'</a> '
+      + '<button class="btn small" onclick="OB.togglePrem()">I already paid</button>'
+      + "<p class='mut'>After paying, return here and tap <b>I already paid</b>. Demo connects instantly; the live server flips on Stripe webhook or the toggle.</p>";
   } else {
     area = "<p class='mut'>Payments open soon. Flip the demo switch to preview ad-free mode.</p>"
       + '<button class="btn primary" onclick="OB.togglePrem()">Enable Premium demo</button>';
@@ -649,6 +671,18 @@ function shareLink(id){
     var u = new URL(location.href); u.searchParams.set("id", id);
     return u.toString();
   } catch(e){ return location.href.split("?")[0] + "?id=" + id; }
+}
+function socialRow(link, text){
+  var e = encodeURIComponent;
+  return '<div class="offerrow socialrow">'
+    + '<a class="btn small" target="_blank" rel="noopener" href="https://twitter.com/intent/tweet?text='+e(text)+'&url='+e(link)+'">X</a>'
+    + '<a class="btn small" target="_blank" rel="noopener" href="https://www.facebook.com/sharer/sharer.php?u='+e(link)+'">Facebook</a>'
+    + '<a class="btn small" target="_blank" rel="noopener" href="https://wa.me/?text='+e(text+" "+link)+'">WhatsApp</a>'
+    + '<a class="btn small" href="mailto:?subject='+e(text)+'&body='+e(link)+'">Email</a>'
+    + '<button class="btn small" onclick="OB.share('+ 'SHAREID' +')">Copy link</button></div>';
+}
+function socialRowFor(id, link, text){
+  return socialRow(link, text).split("SHAREID").join(String(id));
 }
 async function share(id){
   var link = shareLink(id), l = null;

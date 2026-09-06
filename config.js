@@ -11,6 +11,10 @@ window.OB_CONFIG = {
   //   https://infofixdeserts-max.github.io/onebazaar/?paid=feature    (Featured link)
   STRIPE_LINK: "",
   FEATURE_LINK: "",
+  // Fastest $1 path: your PayPal.me name (e.g. "hughsavory"). When the Stripe
+  // links above are empty, buyers pay $1 / $2 to paypal.me/YOU/1 and /2 instead.
+  // No Stripe account needed to take real money today.
+  PAYPAL_ME: "",
   FEATURE_PRICE: "$1",
   // Google AdSense publisher ID (ca-pub-...). Empty = tasteful house ads only.
   ADSENSE_CLIENT: "",
