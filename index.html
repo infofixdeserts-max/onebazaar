@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>OneBazaar - Buy it. Sell it. Want it.</title>
+<meta name="description" content="OneBazaar is the everything-marketplace: sellers list, buyers post want-ads, smart matching brings them together. Local + shipping + online. Ratings, specs autofill, $2/mo ad-free Premium.">
+<link rel="canonical" href="https://infofixdeserts-max.github.io/onebazaar/">
+<meta property="og:type" content="website">
+<meta property="og:title" content="OneBazaar - Buy it. Sell it. Want it.">
+<meta property="og:description" content="Sellers list. Buyers post want-ads. Matching brings them together. Local, shipped, or online.">
+<meta property="og:url" content="https://infofixdeserts-max.github.io/onebazaar/">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="theme-color" content="#0d7a6f" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#121110" media="(prefers-color-scheme: dark)">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%230d7a6f'/%3E%3Ctext x='32' y='44' font-size='34' text-anchor='middle' fill='white' font-family='Arial' font-weight='bold'%3E1B%3C/text%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css">
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"WebSite","name":"OneBazaar",
+ "url":"https://infofixdeserts-max.github.io/onebazaar/",
+ "description":"The everything-marketplace: buy, sell, rent, work. Sellers list, buyers post want-ads.",
+ "potentialAction":{"@type":"SearchAction","target":"https://infofixdeserts-max.github.io/onebazaar/?q={query}","query-input":"required name=query"}}
+</script>
+</head>
+<body>
+<a class="skip" href="#grid">Skip to listings</a>
+<header class="topbar">
+  <div class="brand" onclick="OB.goHome()" role="button" tabindex="0" aria-label="OneBazaar home">One<span>Bazaar</span></div>
+  <div class="searchwrap" role="search">
+    <svg class="sicon" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><circle cx="11" cy="11" r="7" fill="none" stroke="currentColor" stroke-width="2"/><line x1="16.5" y1="16.5" x2="21" y2="21" stroke="currentColor" stroke-width="2"/></svg>
+    <input id="q" type="search" placeholder="Search anything: iPhone, Civic, babysitter, kayak" autocomplete="off" aria-label="Search listings">
+    <button class="btn primary" onclick="OB.search()">Search</button>
+  </div>
+  <div class="topactions">
+    <button class="iconbtn" id="themeBtn" onclick="OB.toggleTheme()" aria-label="Toggle dark mode" title="Dark / light mode">◐</button>
+    <button class="btn primary postbtn" onclick="OB.openPost()">+ Post</button>
+    <span id="userMenu"></span>
+  </div>
+</header>
+
+<nav class="catrow" id="catRow" aria-label="Categories"></nav>
+
+<div class="toolbar">
+  <div class="kindtabs" role="tablist" aria-label="Listing type">
+    <button data-kind="all" class="kindtab active" onclick="OB.setKind('all')">Browse all</button>
+    <button data-kind="sell" class="kindtab" onclick="OB.setKind('sell')">For sale</button>
+    <button data-kind="want" class="kindtab" onclick="OB.setKind('want')">Wanted</button>
+    <button data-kind="mine" class="kindtab" onclick="OB.setKind('mine')">Mine</button>
+  </div>
+  <div class="distbar">
+    <select id="modeFilter" onchange="OB.load()" aria-label="Fulfillment mode">
+      <option value="any">All modes</option>
+      <option value="local">Local</option>
+      <option value="shipping">Ships</option>
+      <option value="online">Online</option>
+    </select>
+    <input id="zip" placeholder="ZIP" size="6" inputmode="numeric" aria-label="ZIP code">
+    <input id="maxkm" placeholder="Max km" size="7" type="number" min="0" aria-label="Max distance km">
+    <button class="btn small" onclick="OB.applyDist()">Apply</button>
+  </div>
+</div>
+
+<div id="adSlot" class="adslot" hidden></div>
+
+<main id="grid" class="grid" aria-live="polite"></main>
+
+<nav class="bottomnav" aria-label="Mobile navigation">
+  <button onclick="OB.goHome()" data-nav="home">⌂<span>Home</span></button>
+  <button onclick="OB.setKind('sell')" data-nav="sell">▦<span>Buy</span></button>
+  <button class="fab" onclick="OB.openPost()" aria-label="Post a listing">+<span>Post</span></button>
+  <button onclick="OB.setKind('want')" data-nav="want">◉<span>Wanted</span></button>
+  <button onclick="OB.openYou()" data-nav="you">☺<span>You</span></button>
+</nav>
+
+<div id="detailModal" class="modal hidden"><div class="modalbox wide" id="detailBody" role="dialog" aria-modal="true"></div></div>
+<div id="postModal" class="modal hidden"><div class="modalbox wide" role="dialog" aria-modal="true" aria-label="Post a listing">
+  <h2 id="postTitle">Post a listing</h2>
+  <div class="formgrid">
+    <label>Kind
+      <select id="p_kind"><option value="sell">For sale / offer</option><option value="want">Wanted / ISO</option></select>
+    </label>
+    <label>Category <select id="p_cat"></select></label>
+    <label class="full">Title <input id="p_title" placeholder="e.g. iPhone 15 128GB unlocked" autocomplete="off"><div id="suggest" class="suggest"></div></label>
+    <label>Price ($) <input id="p_price" type="number" min="0" step="0.01" inputmode="decimal"></label>
+    <label>Condition
+      <select id="p_cond"><option value="new">New</option><option value="used-like new">Used - like new</option><option value="used-good">Used - good</option><option value="used-fair">Used - fair</option><option value="any">Any / N/A</option></select>
+    </label>
+    <label>ZIP <input id="p_zip" placeholder="34994" inputmode="numeric"></label>
+    <label>Image URL <input id="p_img" placeholder="https://..." inputmode="url"></label>
+    <fieldset class="full modes"><legend>How can buyers get it?</legend>
+      <label class="chk"><input type="checkbox" id="m_local" checked> Local pickup</label>
+      <label class="chk"><input type="checkbox" id="m_ship"> Ships</label>
+      <label class="chk"><input type="checkbox" id="m_online"> Online / digital</label>
+    </fieldset>
+    <div class="full"><h3>Specs <span class="hint">autofills when you pick a suggestion</span></h3><div id="specFields"></div>
+      <button class="btn small" onclick="OB.addSpecRow()">+ Add spec</button></div>
+    <label class="full">Description <textarea id="p_desc" rows="3"></textarea></label>
+  </div>
+  <div class="modalfoot">
+    <button class="btn" onclick="OB.close('postModal')">Cancel</button>
+    <button class="btn primary" onclick="OB.submitPost()">Publish</button>
+  </div>
+</div></div>
+
+<div id="authModal" class="modal hidden"><div class="modalbox" role="dialog" aria-modal="true" aria-label="Log in">
+  <h2>Welcome to OneBazaar</h2>
+  <p class="mut">Pick a username to start buying and selling on this device.</p>
+  <div class="formgrid">
+    <label class="full">Username <input id="a_user" autocomplete="username"></label>
+  </div>
+  <div class="modalfoot">
+    <button class="btn" onclick="OB.close('authModal')">Cancel</button>
+    <button class="btn primary" onclick="OB.doAuth()">Continue</button>
+  </div>
+</div></div>
+
+<div id="youModal" class="modal hidden"><div class="modalbox wide" role="dialog" aria-modal="true" aria-label="Your account">
+  <div class="youhead"><h2 id="youName">You</h2><button class="btn small" onclick="OB.close('youModal')">Close</button></div>
+  <div id="youBody"></div>
+</div></div>
+
+<div id="supportModal" class="modal hidden"><div class="modalbox wide" role="dialog" aria-modal="true" aria-label="Support">
+  <div class="youhead"><h2>Support</h2><button class="btn small" onclick="OB.close('supportModal')">Close</button></div>
+  <div id="ticketList"></div>
+  <h3>Open a ticket</h3>
+  <input id="t_subj" placeholder="Subject" style="width:100%;margin-bottom:6px" aria-label="Ticket subject">
+  <textarea id="t_body" rows="3" style="width:100%" placeholder="Describe the issue" aria-label="Ticket body"></textarea>
+  <div class="modalfoot"><button class="btn primary" onclick="OB.submitTicket()">Submit ticket</button></div>
+</div></div>
+
+<div id="premiumModal" class="modal hidden"><div class="modalbox" role="dialog" aria-modal="true" aria-label="Premium">
+  <div class="youhead"><h2>OneBazaar Premium</h2><button class="btn small" onclick="OB.close('premiumModal')">Close</button></div>
+  <p class="mut">One price. Zero ads. <b>$2/mo</b>.</p>
+  <ul class="perks">
+    <li>No ad slots anywhere</li>
+    <li>Premium badge on your profile</li>
+    <li>Support the everything-hub</li>
+  </ul>
+  <div id="payArea"></div>
+</div></div>
+
+<footer class="foot">
+  <span><b>OneBazaar</b> — buy, sell, want, rent, work. Sellers list, buyers post want-ads, matching brings them together.</span>
+  <span class="footlinks"><a href="#" onclick="OB.openSupport();return false">Support</a> · <a href="#" onclick="OB.openPremium();return false">Premium $2/mo</a> · <a href="#" onclick="OB.openSettings();return false">Settings</a></span>
+</footer>
+<div id="toasts" aria-live="polite"></div>
+<script src="config.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
