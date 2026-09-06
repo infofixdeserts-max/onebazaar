@@ -160,3 +160,6 @@ a{color:var(--accent)}
   *,*::before,*::after{animation-duration:.01ms !important;transition-duration:.01ms !important}
   html{scroll-behavior:auto}
 }
+
+.picprev{margin-top:8px}
+.picprev.hidden{display:none}

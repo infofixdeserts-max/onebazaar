@@ -268,7 +268,7 @@ async function open(id, push){
       : '<div class="offerrow"><input id="offAmt" type="number" placeholder="Offer $" style="width:120px" aria-label="Offer amount">'
       + '<input id="offMsg" placeholder="Message" style="flex:1;min-width:140px" aria-label="Offer message">'
       + '<button class="btn primary small" onclick="OB.offer('+l.id+')">Send offer</button></div>'
-      + (buyUrl(l) ? '<div class="offerrow"><button class="btn primary small" onclick="OB.buyNow('+l.id+')">Buy now '+esc(money(l.price))+' via PayPal</button></div>' : ''))
+      + (cleanTag(l.paytag) ? '<div class="offerrow"><button class="btn primary small" onclick="OB.buyNow('+l.id+')">Buy now '+esc(money(l.price))+' via '+esc(buyLabel(l))+'</button></div>' : ''))
     + "<h3>Share</h3>"
     + socialRowFor(l.id, shareLink(l.id), money(l.price) + " " + l.title + " on OneBazaar")
     + matchHtml;
@@ -333,7 +333,11 @@ function openPost(){
   S.editId = 0; $("postTitle").textContent = "Post a listing";
   paintCatSelect("");
   ["p_title","p_price","p_zip","p_img","p_pay","p_desc"].forEach(function(i){ $(i).value = ""; });
-  try { $("p_pay").value = ls("ob_paytag_" + myName()) || ""; } catch(e){}
+  try { $("picPrev").innerHTML = ""; $("picPrev").classList.add("hidden"); $("p_pic").value = ""; } catch(e){}
+  try {
+    $("p_pay").value = ls("ob_paytag_" + myName()) || "";
+    $("p_payprov").value = ls("ob_payprov_" + myName()) || "zelle";
+  } catch(e){}
   $("p_kind").value = "sell"; $("p_cond").value = "new";
   $("m_local").checked = true; $("m_ship").checked = false; $("m_online").checked = false;
   $("specFields").innerHTML = ""; $("suggest").innerHTML = "";
@@ -351,6 +355,7 @@ async function edit(id){
   $("p_cond").value = l.condition || "any"; $("p_zip").value = l.zip || "";
   $("p_img").value = l.image_url || "";
   $("p_pay").value = l.paytag || ls("ob_paytag_" + myName()) || "";
+  try { $("p_payprov").value = l.payprov || ls("ob_payprov_" + myName()) || "zelle"; } catch(e){}
   var modes = l.modes || [];
   $("m_local").checked = modes.indexOf("local") >= 0;
   $("m_ship").checked = modes.indexOf("shipping") >= 0;
@@ -371,6 +376,29 @@ function addSpecRow(k, v){
   $("specFields").appendChild(d);
 }
 function clearSpecs(){ $("specFields").innerHTML = ""; }
+/* Photo upload: shrink to max 900px, JPEG ~0.72, store as data URL inline. */
+function handlePic(file){
+  if (!file || !/^image\//.test(file.type)){ toast("Pick an image file"); return; }
+  var fr = new FileReader();
+  fr.onload = function(){
+    var img = new Image();
+    img.onload = function(){
+      var MAX = 900, w = img.width, h = img.height, sc = Math.min(1, MAX / Math.max(w, h));
+      var c = document.createElement("canvas");
+      c.width = Math.round(w * sc); c.height = Math.round(h * sc);
+      c.getContext("2d").drawImage(img, 0, 0, c.width, c.height);
+      var data = c.toDataURL("image/jpeg", 0.72);
+      if (data.length > 220000){ toast("Image too large even compressed - try a smaller photo"); return; }
+      $("p_img").value = data;
+      var pv = $("picPrev");
+      pv.innerHTML = '<img src="' + data + '" alt="preview" style="max-width:140px;border-radius:8px;display:block">';
+      pv.classList.remove("hidden");
+      toast("Photo added (" + Math.round(data.length / 1024) + " KB)");
+    };
+    img.src = fr.result;
+  };
+  fr.readAsDataURL(file);
+}
 var sugT = null;
 function bindTitle(){
   $("p_title").addEventListener("input", function(){
@@ -410,13 +438,14 @@ async function submitPost(){
   if (ZIPS[zip]){ lat = ZIPS[zip][0]; lng = ZIPS[zip][1]; }
   var cat = $("p_cat").value;
   if (cat === "__new") return toast("Pick + New category first to create it");
+  var prov = $("p_payprov").value || "zelle";
   var payload = { kind:$("p_kind").value, category:cat,
     title:$("p_title").value.trim(), price:parseFloat($("p_price").value)||0,
     condition:$("p_cond").value, zip:zip, lat:lat, lng:lng, modes:modes.length?modes:["local"],
-    image_url:$("p_img").value.trim(), paytag:$("p_pay").value.trim().replace(/^@|.*paypal\.me\//i,"").replace(/[^a-zA-Z0-9.\-_]/g,"").slice(0,40),
+    image_url:$("p_img").value.trim(), paytag:cleanTag($("p_pay").value), payprov:prov,
     description:$("p_desc").value.trim(), specs:specs };
   if (!payload.title) return toast("Title required");
-  if (payload.paytag) ls("ob_paytag_" + myName(), payload.paytag);
+  if (payload.paytag){ ls("ob_paytag_" + myName(), payload.paytag); ls("ob_payprov_" + myName(), prov); }
   try {
     if (S.editId){
       if (apiBase()){ await remote("PUT","/api/listings/" + S.editId, payload); }
@@ -431,7 +460,8 @@ async function submitPost(){
         if (!done) throw new Error("Not yours");
         saveListings(el2);
       }
-      S.editId = 0; close("postModal"); load(); toast("Saved"); return;
+      try { $("picPrev").innerHTML = ""; $("picPrev").classList.add("hidden"); } catch(e){}
+    S.editId = 0; close("postModal"); load(); toast("Saved"); return;
     }
     if (apiBase()){ await remote("POST","/api/listings", Object.assign({seller:myName()}, payload)); }
     else {
@@ -689,19 +719,46 @@ function socialRow(link, text){
 function socialRowFor(id, link, text){
   return socialRow(link, text).split("SHAREID").join(String(id));
 }
-/* Direct buyer-to-seller payment: seller's PayPal.me tag + listing price.
+/* Direct buyer-to-seller payment link. Supports Cash App, Venmo, PayPal, Zelle.
+   Sellers save provider+tag once; buyers tap Buy Now and pay that person directly.
    Returns "" when the listing has no paytag. */
+function cleanTag(s){
+  return String(s || "").trim().replace(/^[@$]|.*(paypal\.me|cash\.app|venmo\.com)\//i, "")
+    .replace(/[^a-zA-Z0-9.\-_@+]/g, "").slice(0, 40);
+}
 function buyUrl(l){
-  var tag = String((l && l.paytag) || "").trim();
+  var tag = cleanTag(l && l.paytag);
   if (!tag) return "";
+  var prov = String((l && l.payprov) || "zelle").toLowerCase();
+  if (prov === "venmo") return "https://venmo.com/" + encodeURIComponent(tag.replace(/^@/, ""));
+  if (prov === "paypal") return "https://paypal.me/" + encodeURIComponent(tag);
+  if (prov === "zelle"){
+    // Zelle has no public web pay-link; open the user's banking Zelle flow prefilled.
+    // zellepay.com send flow accepts recipient + amount via query.
+    var dest = tag;
+    return "https://enroll.zellepay.com/qr?data=" + encodeURIComponent("dest=" + dest + (Number(l.price) > 0 ? "|amt=" + l.price : ""));
+  }
   var amt = Number(l.price) || 0;
-  return "https://paypal.me/" + encodeURIComponent(tag) + (amt > 0 ? "/" + amt : "");
+  return "https://cash.app/" + encodeURIComponent("$" + tag.replace(/^\$/, "")) + (amt > 0 ? "/" + amt : "");
+}
+function buyLabel(l){
+  var prov = String((l && l.payprov) || "zelle").toLowerCase();
+  if (prov === "venmo") return "Venmo";
+  if (prov === "paypal") return "PayPal";
+  if (prov === "zelle") return "Zelle";
+  return "Cash App";
 }
 function buyNow(id){
   opGet(id).then(function(l){
-    var u = l && buyUrl(l);
-    if (!u){ toast("Seller takes offers - send one below"); return; }
-    if (!confirm("Pay " + money(l.price) + " to " + l.seller + " via PayPal?")) return;
+    if (!l || !cleanTag(l.paytag)){ toast("Seller takes offers - send one below"); return; }
+    var label = buyLabel(l), u = buyUrl(l);
+    if (!u){
+      var dest = cleanTag(l.paytag);
+      try { navigator.clipboard.writeText(dest); toast(label + " address copied: " + dest + " - send " + money(l.price)); }
+      catch(e){ prompt("Pay " + money(l.price) + " via " + label + " to:", dest); }
+      return;
+    }
+    if (!confirm("Pay " + money(l.price) + " to " + l.seller + " via " + label + "?")) return;
     location.href = u;
   }).catch(function(e){ toast(e.message); });
 }
@@ -725,6 +782,7 @@ async function share(id){
 /* ---------- boot ---------- */
 async function boot(){
   initTheme(); paintCats(); paintCatSelect(""); bindTitle(); bindCat(); paintUser();
+  try { $("p_pic").addEventListener("change", function(e){ handlePic(e.target.files[0]); }); } catch(e){}
   var qp = new URLSearchParams(location.search);
   var q = qp.get("q");
   if (q) $("q").value = q;
@@ -742,7 +800,7 @@ async function boot(){
 document.readyState === "loading" ? document.addEventListener("DOMContentLoaded", boot) : boot();
 
 return { load:load, open:open, profile:profile, offer:offer, rate:rate, del:del, edit:edit,
-  openPost:openPost, addSpecRow:addSpecRow, clearSpecs:clearSpecs, submitPost:submitPost, share:share, feature:feature, buyNow:buyNow, buyUrl:buyUrl, invite:invite, manageCats:manageCats,
+  openPost:openPost, addSpecRow:addSpecRow, clearSpecs:clearSpecs, submitPost:submitPost, share:share, feature:feature, buyNow:buyNow, buyUrl:buyUrl, buyLabel:buyLabel, cleanTag:cleanTag, invite:invite, manageCats:manageCats,
   openAuth:openAuth, doAuth:doAuth, logout:logout, openYou:openYou, saveApi:saveApi,
   openSupport:openSupport, submitTicket:submitTicket, openPremium:openPremium, togglePrem:togglePrem,
   openSettings:openSettings, setKind:setKind, setCat:setCat, goHome:goHome,

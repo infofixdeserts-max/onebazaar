@@ -18,7 +18,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="styles.css">
+<link rel="stylesheet" href="styles.css?v=7">
 <script>try{var t=JSON.parse(localStorage.getItem("ob_theme"));if(!t&&matchMedia("(prefers-color-scheme: dark)").matches)t="dark";if(t)document.documentElement.setAttribute("data-theme",t);}catch(e){}</script>
 <script type="application/ld+json">
 {"@context":"https://schema.org","@type":"WebSite","name":"OneBazaar",
@@ -91,8 +91,10 @@
       <select id="p_cond"><option value="new">New</option><option value="used-like new">Used - like new</option><option value="used-good">Used - good</option><option value="used-fair">Used - fair</option><option value="any">Any / N/A</option></select>
     </label>
     <label>ZIP <input id="p_zip" placeholder="34994" inputmode="numeric"></label>
-    <label>Image URL <input id="p_img" placeholder="https://..." inputmode="url"></label>
-    <label>PayPal.me name <input id="p_pay" placeholder="yourname (buyers pay you here)" autocapitalize="off" autocomplete="off"></label>
+    <label>Photo <input id="p_pic" type="file" accept="image/*" style="padding:6px"><div id="picPrev" class="picprev hidden"></div></label>
+    <label>Image URL <input id="p_img" placeholder="https://... (optional)" inputmode="url"></label>
+    <label>Payment tag <input id="p_pay" placeholder="Zelle email/phone, $cashtag, @venmo, or paypal name" autocapitalize="off" autocomplete="off"></label>
+    <label>Get paid via <select id="p_payprov"><option value="zelle">Zelle (email/phone)</option><option value="cashapp">Cash App</option><option value="venmo">Venmo</option><option value="paypal">PayPal</option><option value="zelle">Zelle (email/phone)</option></select></label>
     <fieldset class="full modes"><legend>How can buyers get it?</legend>
       <label class="chk"><input type="checkbox" id="m_local" checked> Local pickup</label>
       <label class="chk"><input type="checkbox" id="m_ship"> Ships</label>
@@ -151,7 +153,7 @@
   <span class="footlinks"><a href="#" onclick="OB.openSupport();return false">Support</a> · <a href="#" onclick="OB.openPremium();return false">Premium $2/mo</a> · <a href="#" onclick="OB.openSettings();return false">Settings</a></span>
 </footer>
 <div id="toasts" aria-live="polite"></div>
-<script src="config.js"></script>
-<script src="app.js"></script>
+<script src="config.js?v=7"></script>
+<script src="app.js?v=7"></script>
 </body>
 </html>
