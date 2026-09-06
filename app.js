@@ -267,7 +267,8 @@ async function open(id, push){
       + '<button class="btn danger small" onclick="OB.del('+l.id+')">Delete</button></div>'
       : '<div class="offerrow"><input id="offAmt" type="number" placeholder="Offer $" style="width:120px" aria-label="Offer amount">'
       + '<input id="offMsg" placeholder="Message" style="flex:1;min-width:140px" aria-label="Offer message">'
-      + '<button class="btn primary small" onclick="OB.offer('+l.id+')">Send offer</button></div>')
+      + '<button class="btn primary small" onclick="OB.offer('+l.id+')">Send offer</button></div>'
+      + (buyUrl(l) ? '<div class="offerrow"><button class="btn primary small" onclick="OB.buyNow('+l.id+')">Buy now '+esc(money(l.price))+' via PayPal</button></div>' : ''))
     + "<h3>Share</h3>"
     + socialRowFor(l.id, shareLink(l.id), money(l.price) + " " + l.title + " on OneBazaar")
     + matchHtml;
@@ -331,7 +332,8 @@ function openPost(){
   if (!myName()) return openAuth();
   S.editId = 0; $("postTitle").textContent = "Post a listing";
   paintCatSelect("");
-  ["p_title","p_price","p_zip","p_img","p_desc"].forEach(function(i){ $(i).value = ""; });
+  ["p_title","p_price","p_zip","p_img","p_pay","p_desc"].forEach(function(i){ $(i).value = ""; });
+  try { $("p_pay").value = ls("ob_paytag_" + myName()) || ""; } catch(e){}
   $("p_kind").value = "sell"; $("p_cond").value = "new";
   $("m_local").checked = true; $("m_ship").checked = false; $("m_online").checked = false;
   $("specFields").innerHTML = ""; $("suggest").innerHTML = "";
@@ -348,6 +350,7 @@ async function edit(id){
   $("p_title").value = l.title || ""; $("p_price").value = l.price || "";
   $("p_cond").value = l.condition || "any"; $("p_zip").value = l.zip || "";
   $("p_img").value = l.image_url || "";
+  $("p_pay").value = l.paytag || ls("ob_paytag_" + myName()) || "";
   var modes = l.modes || [];
   $("m_local").checked = modes.indexOf("local") >= 0;
   $("m_ship").checked = modes.indexOf("shipping") >= 0;
@@ -410,8 +413,10 @@ async function submitPost(){
   var payload = { kind:$("p_kind").value, category:cat,
     title:$("p_title").value.trim(), price:parseFloat($("p_price").value)||0,
     condition:$("p_cond").value, zip:zip, lat:lat, lng:lng, modes:modes.length?modes:["local"],
-    image_url:$("p_img").value.trim(), description:$("p_desc").value.trim(), specs:specs };
+    image_url:$("p_img").value.trim(), paytag:$("p_pay").value.trim().replace(/^@|.*paypal\.me\//i,"").replace(/[^a-zA-Z0-9.\-_]/g,"").slice(0,40),
+    description:$("p_desc").value.trim(), specs:specs };
   if (!payload.title) return toast("Title required");
+  if (payload.paytag) ls("ob_paytag_" + myName(), payload.paytag);
   try {
     if (S.editId){
       if (apiBase()){ await remote("PUT","/api/listings/" + S.editId, payload); }
@@ -684,6 +689,22 @@ function socialRow(link, text){
 function socialRowFor(id, link, text){
   return socialRow(link, text).split("SHAREID").join(String(id));
 }
+/* Direct buyer-to-seller payment: seller's PayPal.me tag + listing price.
+   Returns "" when the listing has no paytag. */
+function buyUrl(l){
+  var tag = String((l && l.paytag) || "").trim();
+  if (!tag) return "";
+  var amt = Number(l.price) || 0;
+  return "https://paypal.me/" + encodeURIComponent(tag) + (amt > 0 ? "/" + amt : "");
+}
+function buyNow(id){
+  opGet(id).then(function(l){
+    var u = l && buyUrl(l);
+    if (!u){ toast("Seller takes offers - send one below"); return; }
+    if (!confirm("Pay " + money(l.price) + " to " + l.seller + " via PayPal?")) return;
+    location.href = u;
+  }).catch(function(e){ toast(e.message); });
+}
 async function share(id){
   var link = shareLink(id), l = null;
   try { l = await opGet(id); } catch(e){}
@@ -721,7 +742,7 @@ async function boot(){
 document.readyState === "loading" ? document.addEventListener("DOMContentLoaded", boot) : boot();
 
 return { load:load, open:open, profile:profile, offer:offer, rate:rate, del:del, edit:edit,
-  openPost:openPost, addSpecRow:addSpecRow, clearSpecs:clearSpecs, submitPost:submitPost, share:share, feature:feature, invite:invite, manageCats:manageCats,
+  openPost:openPost, addSpecRow:addSpecRow, clearSpecs:clearSpecs, submitPost:submitPost, share:share, feature:feature, buyNow:buyNow, buyUrl:buyUrl, invite:invite, manageCats:manageCats,
   openAuth:openAuth, doAuth:doAuth, logout:logout, openYou:openYou, saveApi:saveApi,
   openSupport:openSupport, submitTicket:submitTicket, openPremium:openPremium, togglePrem:togglePrem,
   openSettings:openSettings, setKind:setKind, setCat:setCat, goHome:goHome,
